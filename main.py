@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QInputDialog,
     QMainWindow,
     QMessageBox,
+    QPushButton,
     QSplitter,
     QStatusBar,
 )
@@ -211,6 +212,7 @@ class MainWindow(QMainWindow):
         self.current_workspace_path: Optional[str] = None
         self.current_file_path: Optional[str] = None
         self.active_view_mode: str = "split"
+        self.is_strict_mode: bool = True
 
         # Initialize User Interface
         self._init_ui()
@@ -241,6 +243,15 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar(self)
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("Siap - Buka folder workspace untuk memulai")
+
+        # Security Mode Status Bar Toggle Button
+        self.security_btn = QPushButton(self)
+        self.security_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.security_btn.clicked.connect(lambda: self.toggle_security_mode())
+        self.status_bar.addPermanentWidget(self.security_btn)
+
+        # Initial UI update for security mode
+        self.update_security_ui()
 
     def _setup_menus(self):
         """Configure main application menu bar."""
@@ -285,6 +296,76 @@ class MainWindow(QMainWindow):
         preview_view_action = QAction("&Preview Mode", self)
         preview_view_action.triggered.connect(lambda: self.on_mode_changed("preview"))
         view_menu.addAction(preview_view_action)
+
+        # Security Menu
+        security_menu = menu_bar.addMenu("&Security")
+
+        self.security_menu_action = QAction("🔒 Strict Mode (Offline)", self)
+        self.security_menu_action.setCheckable(True)
+        self.security_menu_action.setChecked(self.is_strict_mode)
+        self.security_menu_action.triggered.connect(self.toggle_security_mode)
+        security_menu.addAction(self.security_menu_action)
+
+    def toggle_security_mode(self, checked: Optional[bool] = None):
+        """Toggle Security Mode state (Strict Mode vs Standard Mode).
+
+        Args:
+            checked (Optional[bool]): If provided, sets strict mode directly; otherwise flips mode.
+        """
+        if checked is None or not isinstance(checked, bool):
+            self.is_strict_mode = not self.is_strict_mode
+        else:
+            self.is_strict_mode = checked
+
+        self.editor_pane.preview.set_strict_mode(self.is_strict_mode)
+        self.update_security_ui()
+
+        # Re-render current content to reflect new security rule
+        current_text = self.editor_pane.editor.toPlainText()
+        self.on_content_changed(current_text)
+
+    def update_security_ui(self):
+        """Update Status Bar button text/style and Menu Action state."""
+        if self.is_strict_mode:
+            self.security_btn.setText("🔒 Strict Mode (Offline)")
+            self.security_btn.setToolTip("Strict Security Mode Active: All HTTP/HTTPS requests blocked")
+            self.security_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #238636;
+                    color: #ffffff;
+                    border: 1px solid #2ea043;
+                    border-radius: 4px;
+                    padding: 2px 8px;
+                    font-weight: bold;
+                    font-size: 9pt;
+                }
+                QPushButton:hover {
+                    background-color: #2ea043;
+                }
+            """)
+        else:
+            self.security_btn.setText("🌐 Standard Mode (Online Badges)")
+            self.security_btn.setToolTip("Standard Mode Active: Remote HTTP/HTTPS images allowed")
+            self.security_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #9e6a03;
+                    color: #ffffff;
+                    border: 1px solid #bb8009;
+                    border-radius: 4px;
+                    padding: 2px 8px;
+                    font-weight: bold;
+                    font-size: 9pt;
+                }
+                QPushButton:hover {
+                    background-color: #bb8009;
+                }
+            """)
+
+        if hasattr(self, "security_menu_action"):
+            self.security_menu_action.setChecked(self.is_strict_mode)
+            self.security_menu_action.setText(
+                "🔒 Strict Mode (Offline)" if self.is_strict_mode else "🌐 Standard Mode (Online Badges)"
+            )
 
     def _setup_shortcuts(self):
         """Configure keyboard shortcuts."""

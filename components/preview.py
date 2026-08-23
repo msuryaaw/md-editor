@@ -158,11 +158,21 @@ class CustomPreview(QTextBrowser):
         self.setOpenExternalLinks(True)
         self._image_cache = {}
         self.base_dir = os.getcwd()
+        self.strict_mode = True
 
     def set_base_dir(self, directory: str):
         """Set base directory for resolving local relative image paths."""
         if directory and os.path.exists(directory):
             self.base_dir = directory
+
+    def set_strict_mode(self, enabled: bool):
+        """Enable or disable strict security mode for image loading.
+
+        Args:
+            enabled (bool): True to block HTTP/HTTPS remote images, False to allow.
+        """
+        self.strict_mode = enabled
+        self._image_cache.clear()
 
     def _render_svg_to_qimage(self, svg_data: bytes) -> QImage:
         """Render raw SVG bytes into QImage with transparent background."""
@@ -197,6 +207,10 @@ class CustomPreview(QTextBrowser):
 
             # 1. Handle HTTP/HTTPS remote images
             if name.scheme() in ["http", "https"]:
+                # BLOCK remote images in Strict Security Mode
+                if self.strict_mode:
+                    return QImage()
+
                 if url_str in self._image_cache:
                     return self._image_cache[url_str]
 
