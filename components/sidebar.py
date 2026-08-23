@@ -45,6 +45,14 @@ class SidebarTree(QTreeView):
         root_index = self.model.setRootPath(folder_path)
         self.setRootIndex(root_index)
 
+    def refresh_tree(self):
+        """Refresh the filesystem view model."""
+        current_root = self.model.rootPath()
+        if current_root:
+            self.model.setRootPath("")
+            root_index = self.model.setRootPath(current_root)
+            self.setRootIndex(root_index)
+
     def _on_item_clicked(self, index):
         """Handle tree item selection and emit file_selected signal if a Markdown file is selected."""
         file_path = self.model.filePath(index)

@@ -1,76 +1,145 @@
 """Custom Preview Component
 
-QTextBrowser subclass for displaying rendered Markdown HTML.
+QTextBrowser subclass for displaying rendered Markdown HTML styled with GitHub Dark Theme (CSS 2.1 compatible).
 """
 
 from PyQt6.QtWidgets import QTextBrowser
 
+from utils.markdown_parser import get_pygments_dark_css
+
 
 class CustomPreview(QTextBrowser):
-    """Custom preview widget for HTML output."""
+    """Custom HTML preview widget for rendered Markdown in GitHub Dark style."""
 
-    DEFAULT_STYLE = """
+    GITHUB_DARK_CSS = """
     <style>
         body {
-            font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             font-size: 14px;
             line-height: 1.6;
-            color: #24292e;
-            padding: 16px;
+            color: #c9d1d9;
+            background-color: #0d1117;
+            padding: 24px;
+            margin: 0;
         }
         h1, h2, h3, h4, h5, h6 {
-            margin-top: 20px;
-            margin-bottom: 12px;
+            margin-top: 24px;
+            margin-bottom: 16px;
             font-weight: 600;
-            color: #1f2328;
+            line-height: 1.25;
+            color: #f0f6fc;
         }
-        h1 { font-size: 2em; border-bottom: 1px solid #d8dee4; padding-bottom: 0.3em; }
-        h2 { font-size: 1.5em; border-bottom: 1px solid #d8dee4; padding-bottom: 0.3em; }
+        h1 {
+            font-size: 2em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid #21262d;
+        }
+        h2 {
+            font-size: 1.5em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid #21262d;
+        }
         h3 { font-size: 1.25em; }
-        code {
-            font-family: Consolas, "Courier New", monospace;
-            background-color: #f6f8fa;
-            padding: 0.2em 0.4em;
-            border-radius: 4px;
-            font-size: 85%;
-        }
-        pre {
-            background-color: #f6f8fa;
-            padding: 14px;
-            border-radius: 6px;
-            font-family: Consolas, "Courier New", monospace;
-            font-size: 85%;
-            line-height: 1.45;
-        }
-        pre code {
-            background-color: transparent;
-            padding: 0;
-        }
-        blockquote {
-            margin: 0;
-            padding: 0 1em;
-            color: #57606a;
-            border-left: 0.25em solid #d0d7de;
-        }
-        table {
-            border-collapse: collapse;
-            width: 100%;
+        h4 { font-size: 1em; }
+        h5 { font-size: 0.875em; }
+        h6 { font-size: 0.85em; color: #8b949e; }
+
+        p {
+            margin-top: 0;
             margin-bottom: 16px;
         }
+
+        code {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 13px;
+            color: #e6edf3;
+            background-color: #161b22;
+        }
+
+        pre {
+            background-color: #161b22;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre;
+            margin-top: 0;
+            margin-bottom: 16px;
+        }
+
+        pre code {
+            background-color: #161b22;
+            color: #c9d1d9;
+            padding: 0;
+            border: none;
+            font-size: 100%;
+        }
+
+        pre span {
+            background-color: #161b22;
+        }
+
+        blockquote {
+            margin: 0 0 16px 0;
+            padding: 0 1em;
+            color: #8b949e;
+            border-left: 3px solid #30363d;
+        }
+
+        table {
+            border-spacing: 0;
+            border-collapse: collapse;
+            margin-top: 0;
+            margin-bottom: 16px;
+            width: 100%;
+        }
+
         table th, table td {
             padding: 6px 13px;
-            border: 1px solid #d0d7de;
+            border: 1px solid #30363d;
         }
+
         table th {
             font-weight: 600;
-            background-color: #f6f8fa;
+            background-color: #161b22;
+            color: #f0f6fc;
         }
+
         table tr:nth-child(2n) {
-            background-color: #f6f8fa;
+            background-color: #161b22;
         }
+
+        table tr:nth-child(2n+1) {
+            background-color: #0d1117;
+        }
+
+        hr {
+            height: 2px;
+            padding: 0;
+            margin: 24px 0;
+            background-color: #30363d;
+            border: 0;
+        }
+
         ul, ol {
+            margin-top: 0;
+            margin-bottom: 16px;
             padding-left: 2em;
         }
+
+        li + li {
+            margin-top: 0.25em;
+        }
+
+        a {
+            color: #58a6ff;
+            text-decoration: none;
+        }
+
+        /* Pygments Dark Syntax Highlighting */
+        {pygments_css}
     </style>
     """
 
@@ -79,10 +148,12 @@ class CustomPreview(QTextBrowser):
         self.setOpenExternalLinks(True)
 
     def render_html(self, html_str: str):
-        """Render HTML content with embedded custom stylesheet.
+        """Render HTML string wrapped in GitHub Dark Theme CSS.
 
         Args:
-            html_str (str): Raw HTML string to display.
+            html_str (str): Raw HTML content to display.
         """
-        styled_html = f"<html><head>{self.DEFAULT_STYLE}</head><body>{html_str}</body></html>"
+        pygments_css = get_pygments_dark_css()
+        full_css = self.GITHUB_DARK_CSS.replace("{pygments_css}", pygments_css)
+        styled_html = f"<html><head>{full_css}</head><body>{html_str}</body></html>"
         self.setHtml(styled_html)

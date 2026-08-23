@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import QToolBar
 class MainToolBar(QToolBar):
     """Application main toolbar."""
 
+    new_file_requested = pyqtSignal()
     open_folder_requested = pyqtSignal()
     save_requested = pyqtSignal()
     mode_changed = pyqtSignal(str)
@@ -23,6 +24,11 @@ class MainToolBar(QToolBar):
     def _setup_actions(self):
         """Create and layout toolbar actions."""
         # File management actions
+        self.new_action = QAction("📄 New File", self)
+        self.new_action.setToolTip("Buat file Markdown baru (Ctrl+N)")
+        self.new_action.triggered.connect(self.new_file_requested.emit)
+        self.addAction(self.new_action)
+
         self.open_action = QAction("📂 Open Folder", self)
         self.open_action.setToolTip("Buka folder workspace")
         self.open_action.triggered.connect(self.open_folder_requested.emit)
