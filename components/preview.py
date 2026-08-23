@@ -1,8 +1,12 @@
 """Custom Preview Component
 
 QTextBrowser subclass for displaying rendered Markdown HTML styled with GitHub Dark Theme (CSS 2.1 compatible).
+Supports remote image fetching (HTTP/HTTPS badges) via loadResource override.
 """
 
+import urllib.request
+from PyQt6.QtCore import QUrl
+from PyQt6.QtGui import QTextDocument
 from PyQt6.QtWidgets import QTextBrowser
 
 from utils.markdown_parser import get_pygments_dark_css
@@ -13,132 +17,128 @@ class CustomPreview(QTextBrowser):
 
     GITHUB_DARK_CSS = """
     <style>
+        /* Body & Layout */
         body {
+            background-color: #0d1117;
+            color: #c9d1d9;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             font-size: 14px;
             line-height: 1.6;
-            color: #c9d1d9;
-            background-color: #0d1117;
-            padding: 24px;
+            padding: 16px;
             margin: 0;
         }
-        h1, h2, h3, h4, h5, h6 {
+
+        /* Headings dengan Border Bawah Presisi GitHub */
+        h1, h2 {
+            color: #f0f6fc;
+            font-weight: 600;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid #21262d;
             margin-top: 24px;
             margin-bottom: 16px;
-            font-weight: 600;
-            line-height: 1.25;
-            color: #f0f6fc;
         }
-        h1 {
-            font-size: 2em;
-            padding-bottom: 0.3em;
-            border-bottom: 1px solid #21262d;
-        }
-        h2 {
-            font-size: 1.5em;
-            padding-bottom: 0.3em;
-            border-bottom: 1px solid #21262d;
-        }
-        h3 { font-size: 1.25em; }
-        h4 { font-size: 1em; }
-        h5 { font-size: 0.875em; }
-        h6 { font-size: 0.85em; color: #8b949e; }
+        h1 { font-size: 2em; }
+        h2 { font-size: 1.5em; }
+        h3 { font-size: 1.25em; color: #f0f6fc; margin-top: 20px; }
+        h4 { font-size: 1em; color: #f0f6fc; }
 
-        p {
-            margin-top: 0;
-            margin-bottom: 16px;
+        /* FIX CRITICAL: Eliminasi Belang/Garis Hitam di Code Block */
+        pre {
+            background-color: #161b22 !important;
+            color: #c9d1d9 !important;
+            border: 1px solid #30363d !important;
+            padding: 14px !important;
+            border-radius: 6px !important;
+            font-family: 'Consolas', 'Courier New', monospace !important;
+            font-size: 13px !important;
+            line-height: 1.45 !important;
+            white-space: pre !important;
+            margin-bottom: 16px !important;
+        }
+
+        /* Paksa seluruh anak elemen di dalam pre agar background-nya transparan total */
+        pre *, pre span, pre code {
+            background-color: transparent !important;
+            background: none !important;
+            font-family: 'Consolas', 'Courier New', monospace !important;
         }
 
         code {
-            font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 13px;
-            color: #e6edf3;
-            background-color: #161b22;
-        }
-
-        pre {
             background-color: #161b22;
             color: #c9d1d9;
             border: 1px solid #30363d;
-            padding: 10px;
             border-radius: 6px;
+            padding: 2px 6px;
             font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 13px;
-            white-space: pre;
-            margin-top: 0;
-            margin-bottom: 16px;
+            font-size: 85%;
         }
 
-        pre code {
-            background-color: #161b22;
-            color: #c9d1d9;
-            padding: 0;
-            border: none;
-            font-size: 100%;
-        }
-
-        pre span {
-            background-color: #161b22;
-        }
-
-        blockquote {
-            margin: 0 0 16px 0;
-            padding: 0 1em;
-            color: #8b949e;
-            border-left: 3px solid #30363d;
-        }
-
+        /* Tables Styling Presisi */
         table {
-            border-spacing: 0;
             border-collapse: collapse;
-            margin-top: 0;
-            margin-bottom: 16px;
             width: 100%;
-        }
-
-        table th, table td {
-            padding: 6px 13px;
+            margin-top: 12px;
+            margin-bottom: 16px;
             border: 1px solid #30363d;
         }
-
-        table th {
-            font-weight: 600;
+        th, td {
+            padding: 8px 13px;
+            border: 1px solid #30363d;
+        }
+        th {
             background-color: #161b22;
             color: #f0f6fc;
+            font-weight: 600;
+            text-align: left;
         }
+        tr:nth-child(even) { background-color: #161b22; }
+        tr:nth-child(odd) { background-color: #0d1117; }
 
-        table tr:nth-child(2n) {
-            background-color: #161b22;
+        /* Lists & Tasklists */
+        ul, ol {
+            padding-left: 2em;
+            margin-top: 0;
+            margin-bottom: 16px;
         }
-
-        table tr:nth-child(2n+1) {
-            background-color: #0d1117;
+        li {
+            margin-top: 0.25em;
         }
-
+        blockquote {
+            padding: 0 1em;
+            color: #8b949e;
+            border-left: 0.25em solid #30363d;
+            margin: 0 0 16px 0;
+        }
         hr {
-            height: 2px;
+            height: 0.25em;
             padding: 0;
             margin: 24px 0;
             background-color: #30363d;
             border: 0;
         }
-
-        ul, ol {
-            margin-top: 0;
-            margin-bottom: 16px;
-            padding-left: 2em;
-        }
-
-        li + li {
-            margin-top: 0.25em;
-        }
-
         a {
             color: #58a6ff;
             text-decoration: none;
         }
+        a:hover {
+            text-decoration: underline;
+        }
+        img {
+            max-width: 100%;
+            vertical-align: middle;
+            background-color: transparent;
+        }
 
-        /* Pygments Dark Syntax Highlighting */
+        /* GitHub Dark Token Colors for Code Block */
+        .highlight .k, .highlight .kd, .highlight .kn, .codehilite .k, .codehilite .kd, .codehilite .kn { color: #ff7b72; font-weight: bold; }
+        .highlight .s, .highlight .s2, .highlight .se, .codehilite .s, .codehilite .s2, .codehilite .se { color: #a5d6ff; }
+        .highlight .nf, .highlight .fm, .codehilite .nf, .codehilite .fm { color: #d2a8ff; }
+        .highlight .c, .highlight .c1, .codehilite .c, .codehilite .c1 { color: #8b949e; font-style: italic; }
+        .highlight .nb, .highlight .nc, .codehilite .nb, .codehilite .nc { color: #ffa657; }
+        .highlight .mi, .highlight .mf, .codehilite .mi, .codehilite .mf { color: #79c0ff; }
+        .highlight .o, .highlight .p, .codehilite .o, .codehilite .p { color: #f0f6fc; }
+
+        /* Pygments Dark Syntax Highlighting Fallback */
         {pygments_css}
     </style>
     """
@@ -146,6 +146,31 @@ class CustomPreview(QTextBrowser):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setOpenExternalLinks(True)
+        self._image_cache = {}
+
+    def loadResource(self, type_id, name: QUrl):
+        """Fetch and cache remote image resources (HTTP/HTTPS) for QTextBrowser."""
+        if type_id == QTextDocument.ResourceType.ImageResource and name.scheme() in ["http", "https"]:
+            url_str = name.toString()
+
+            # Check cache
+            if url_str in self._image_cache:
+                return self._image_cache[url_str]
+
+            try:
+                req = urllib.request.Request(
+                    url_str,
+                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+                )
+                with urllib.request.urlopen(req, timeout=3) as response:
+                    image_data = response.read()
+                    self._image_cache[url_str] = image_data
+                    return image_data
+            except Exception as e:
+                # Log error silently and delegate to parent
+                pass
+
+        return super().loadResource(type_id, name)
 
     def render_html(self, html_str: str):
         """Render HTML string wrapped in GitHub Dark Theme CSS.

@@ -85,8 +85,7 @@ class CustomEditor(QTextEdit):
 
     def _setup_style(self):
         """Configure monospaced font and tab spacing."""
-        font = QFont()
-        font.setPointSize(11)
+        font = QFont("Consolas", 11)
         font.setFamilies(["Cascadia Code", "Fira Code", "Consolas", "Courier New", "monospace"])
         font.setStyleHint(QFont.StyleHint.Monospace)
         self.setFont(font)

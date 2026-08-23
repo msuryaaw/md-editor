@@ -9,7 +9,7 @@ import sys
 from typing import Optional
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QAction, QKeySequence, QShortcut
+from PyQt6.QtGui import QAction, QFont, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -37,7 +37,7 @@ QWidget {
     background-color: #0d1117;
     color: #c9d1d9;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    font-size: 13px;
+    font-size: 10pt;
 }
 
 /* Toolbar */
@@ -112,7 +112,7 @@ QTreeView {
     border: none;
     border-right: 1px solid #30363d;
     font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
-    font-size: 13px;
+    font-size: 10pt;
 }
 
 QTreeView::item {
@@ -420,6 +420,7 @@ class MainWindow(QMainWindow):
 def main():
     """Application main entry point."""
     app = QApplication(sys.argv)
+    app.setFont(QFont("Segoe UI", 10))
     app.setStyleSheet(GITHUB_DARK_QSS)
     window = MainWindow()
     window.show()
