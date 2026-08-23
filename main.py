@@ -9,7 +9,7 @@ import sys
 from typing import Optional
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QAction, QFont, QKeySequence, QShortcut
+from PyQt6.QtGui import QAction, QFont, QIcon, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -199,8 +199,13 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Markdown Editor")
+        self.setWindowTitle("MD Editor")
         self.resize(1100, 700)
+
+        # Set Window Icon if available
+        icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.ico")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
 
         # State Variables
         self.current_workspace_path: Optional[str] = None
@@ -352,6 +357,7 @@ class MainWindow(QMainWindow):
         if folder_path:
             self.current_workspace_path = folder_path
             self.sidebar.set_workspace(folder_path)
+            self.editor_pane.preview.set_base_dir(folder_path)
             self.status_bar.showMessage(f"Workspace aktif: {folder_path}")
 
     def load_file(self, file_path: str):
@@ -364,8 +370,9 @@ class MainWindow(QMainWindow):
             content = read_file(file_path)
             self.current_file_path = file_path
             self.editor_pane.editor.setText(content)
+            self.editor_pane.preview.set_base_dir(os.path.dirname(file_path))
 
-            self.setWindowTitle(f"Markdown Editor - {file_path}")
+            self.setWindowTitle(f"MD Editor - {file_path}")
             self.status_bar.showMessage(f"Membuka berkas: {file_path}")
 
             # Initial preview rendering

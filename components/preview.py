@@ -4,9 +4,11 @@ QTextBrowser subclass for displaying rendered Markdown HTML styled with GitHub D
 Supports remote image fetching (HTTP/HTTPS badges) via loadResource override.
 """
 
+import os
 import urllib.request
-from PyQt6.QtCore import QUrl
-from PyQt6.QtGui import QTextDocument
+from PyQt6.QtCore import QByteArray, QBuffer, QIODevice, QUrl
+from PyQt6.QtGui import QImage, QPainter, QTextDocument
+from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QTextBrowser
 
 from utils.markdown_parser import get_pygments_dark_css
@@ -96,12 +98,20 @@ class CustomPreview(QTextBrowser):
 
         /* Lists & Tasklists */
         ul, ol {
-            padding-left: 2em;
-            margin-top: 0;
-            margin-bottom: 16px;
+            display: block !important;
+            padding-left: 2em !important;
+            margin-top: 8px !important;
+            margin-bottom: 16px !important;
         }
         li {
-            margin-top: 0.25em;
+            display: list-item !important;
+            margin-top: 4px !important;
+            margin-bottom: 4px !important;
+            color: #c9d1d9 !important;
+        }
+        /* Tasklist Checkbox Reset */
+        li input[type="checkbox"], li span.checkbox {
+            margin-right: 6px;
         }
         blockquote {
             padding: 0 1em;
@@ -147,30 +157,94 @@ class CustomPreview(QTextBrowser):
         super().__init__(parent)
         self.setOpenExternalLinks(True)
         self._image_cache = {}
+        self.base_dir = os.getcwd()
+
+    def set_base_dir(self, directory: str):
+        """Set base directory for resolving local relative image paths."""
+        if directory and os.path.exists(directory):
+            self.base_dir = directory
+
+    def _render_svg_to_qimage(self, svg_data: bytes) -> QImage:
+        """Render raw SVG bytes into QImage with transparent background."""
+        renderer = QSvgRenderer(QByteArray(svg_data))
+        if not renderer.isValid():
+            img = QImage()
+            img.loadFromData(svg_data)
+            return img
+
+        size = renderer.defaultSize()
+        if size.isEmpty() or size.width() <= 0 or size.height() <= 0:
+            size.setWidth(100)
+            size.setHeight(20)
+
+        image = QImage(size, QImage.Format.Format_ARGB32)
+        image.fill(0)  # Transparent background
+
+        painter = QPainter(image)
+        renderer.render(painter)
+        painter.end()
+
+        return image
 
     def loadResource(self, type_id, name: QUrl):
-        """Fetch and cache remote image resources (HTTP/HTTPS) for QTextBrowser."""
-        if type_id == QTextDocument.ResourceType.ImageResource and name.scheme() in ["http", "https"]:
-            url_str = name.toString()
+        """Fetch and cache remote image resources (HTTP/HTTPS) and local relative images."""
+        if type_id == QTextDocument.ResourceType.ImageResource:
+            # Use toEncoded() to preserve percent-encoding (e.g. %20) for urllib requests
+            if name.scheme() in ["http", "https"]:
+                url_str = bytes(name.toEncoded()).decode("utf-8")
+            else:
+                url_str = name.toString()
 
-            # Check cache
-            if url_str in self._image_cache:
-                return self._image_cache[url_str]
+            # 1. Handle HTTP/HTTPS remote images
+            if name.scheme() in ["http", "https"]:
+                if url_str in self._image_cache:
+                    return self._image_cache[url_str]
 
-            try:
-                req = urllib.request.Request(
-                    url_str,
-                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
-                )
-                with urllib.request.urlopen(req, timeout=3) as response:
-                    image_data = response.read()
-                    self._image_cache[url_str] = image_data
-                    return image_data
-            except Exception as e:
-                # Log error silently and delegate to parent
-                pass
+                try:
+                    req = urllib.request.Request(
+                        url_str,
+                        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+                    )
+                    with urllib.request.urlopen(req, timeout=3) as response:
+                        image_data = response.read()
+                        is_svg = url_str.lower().endswith(".svg") or "shields.io" in url_str.lower() or b"<svg" in image_data[:100].lower()
+                        if is_svg:
+                            qimg = self._render_svg_to_qimage(image_data)
+                        else:
+                            qimg = QImage()
+                            qimg.loadFromData(image_data)
+
+                        if not qimg.isNull():
+                            self._image_cache[url_str] = qimg
+                            return qimg
+                except Exception:
+                    pass
+
+            # 2. Handle Local Images (File URL or Relative Paths)
+            path_str = name.toLocalFile() if name.scheme() == "file" else url_str
+            if path_str:
+                # Resolve relative paths against base_dir or cwd
+                if not os.path.isabs(path_str):
+                    abs_path = os.path.abspath(os.path.join(self.base_dir, path_str))
+                else:
+                    abs_path = path_str
+
+                if os.path.exists(abs_path):
+                    try:
+                        with open(abs_path, "rb") as f:
+                            image_data = f.read()
+                            if abs_path.lower().endswith(".svg") or b"<svg" in image_data[:100].lower():
+                                qimg = self._render_svg_to_qimage(image_data)
+                            else:
+                                qimg = QImage()
+                                qimg.loadFromData(image_data)
+                            if not qimg.isNull():
+                                return qimg
+                    except Exception:
+                        pass
 
         return super().loadResource(type_id, name)
+
 
     def render_html(self, html_str: str):
         """Render HTML string wrapped in GitHub Dark Theme CSS.

@@ -53,6 +53,9 @@ def parse_markdown(text: str) -> str:
     # Pre-process tasklist checkboxes
     processed_text = _convert_tasklists(text)
 
+    # Pre-process: Ensure blank line before list items (* - + 1.) if preceded by plain text line
+    processed_text = re.sub(r"([^\n])\n([ \t]*[*+\-]|\d+\.) ", r"\1\n\n\2 ", processed_text)
+
     extensions = ["fenced_code", "tables", "codehilite", "toc", "sane_lists"]
     extension_configs = {
         "codehilite": {

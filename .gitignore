@@ -17,5 +17,10 @@ ENV/
 .DS_Store
 Thumbs.db
 
+# PyInstaller / Build artifacts
+build/
+dist/
+*.spec
+
 # Other
 guide/
