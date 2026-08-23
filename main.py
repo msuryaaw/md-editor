@@ -9,7 +9,7 @@ import sys
 from typing import Optional
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QAction, QFont, QIcon, QKeySequence, QShortcut
+from PyQt6.QtGui import QAction, QCloseEvent, QFont, QIcon, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -213,6 +213,7 @@ class MainWindow(QMainWindow):
         self.current_file_path: Optional[str] = None
         self.active_view_mode: str = "split"
         self.is_strict_mode: bool = True
+        self.is_modified: bool = False
 
         # Initialize User Interface
         self._init_ui()
@@ -389,6 +390,21 @@ class MainWindow(QMainWindow):
         # Real-time preview signal: Editor text change -> Markdown parser -> Preview HTML
         self.editor_pane.editor.content_changed.connect(self.on_content_changed)
 
+        # Track text modification for unsaved changes warning
+        self.editor_pane.editor.textChanged.connect(self.on_text_modified)
+
+    def update_window_title(self):
+        """Update window title reflecting current file path and modified status."""
+        base_title = f"{self.current_file_path} - MD Editor" if self.current_file_path else "MD Editor"
+        title = f"*{base_title}" if self.is_modified else base_title
+        self.setWindowTitle(title)
+
+    def on_text_modified(self):
+        """Slot triggered on editor textChanged signal."""
+        if not self.is_modified:
+            self.is_modified = True
+            self.update_window_title()
+
     def create_new_file(self):
         """Create a new Markdown file in the workspace or target location."""
         if self.current_workspace_path:
@@ -453,7 +469,8 @@ class MainWindow(QMainWindow):
             self.editor_pane.editor.setText(content)
             self.editor_pane.preview.set_base_dir(os.path.dirname(file_path))
 
-            self.setWindowTitle(f"MD Editor - {file_path}")
+            self.is_modified = False
+            self.update_window_title()
             self.status_bar.showMessage(f"Membuka berkas: {file_path}")
 
             # Initial preview rendering
@@ -478,7 +495,8 @@ class MainWindow(QMainWindow):
         content = self.editor_pane.editor.toPlainText()
         try:
             write_file(self.current_file_path, content)
-            self.setWindowTitle(f"Markdown Editor - {self.current_file_path}")
+            self.is_modified = False
+            self.update_window_title()
             self.status_bar.showMessage(f"Berhasil menyimpan: {self.current_file_path}")
         except IOError as err:
             QMessageBox.critical(self, "Error Menyimpan File", str(err))
@@ -503,6 +521,36 @@ class MainWindow(QMainWindow):
         self.editor_pane.set_mode(mode_name)
         self.toolbar.set_active_mode(mode_name)
         self.status_bar.showMessage(f"Mode tampilan: {mode_name.upper()}")
+
+    def closeEvent(self, event: QCloseEvent):
+        """Intercept window close event to confirm unsaved changes.
+
+        Args:
+            event (QCloseEvent): Window close event.
+        """
+        if self.is_modified:
+            reply = QMessageBox.question(
+                self,
+                "Konfirmasi Tutup",
+                "Dokumen memiliki perubahan yang belum disimpan. Apakah Anda ingin menyimpannya?",
+                QMessageBox.StandardButton.Save
+                | QMessageBox.StandardButton.Discard
+                | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Save,
+            )
+
+            if reply == QMessageBox.StandardButton.Save:
+                self.save_current_file()
+                if not self.is_modified:
+                    event.accept()
+                else:
+                    event.ignore()
+            elif reply == QMessageBox.StandardButton.Discard:
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            event.accept()
 
 
 def main():
