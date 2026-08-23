@@ -62,7 +62,11 @@ def parse_markdown(text: str) -> str:
             "css_class": "highlight",
             "guess_lang": False,
             "use_pygments": True,
-        }
+        },
+        "toc": {
+            "permalink": False,
+            "toc_depth": "1-6",
+        },
     }
     return markdown.markdown(
         processed_text, extensions=extensions, extension_configs=extension_configs

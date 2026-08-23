@@ -6,8 +6,9 @@ Supports remote image fetching (HTTP/HTTPS badges) via loadResource override.
 
 import os
 import urllib.request
+from urllib.parse import unquote
 from PyQt6.QtCore import QByteArray, QBuffer, QIODevice, QUrl
-from PyQt6.QtGui import QImage, QPainter, QTextDocument
+from PyQt6.QtGui import QDesktopServices, QImage, QPainter, QTextDocument
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QTextBrowser
 
@@ -155,10 +156,40 @@ class CustomPreview(QTextBrowser):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setOpenExternalLinks(True)
+        self.setOpenExternalLinks(False)
+        self.anchorClicked.connect(self._on_anchor_clicked)
         self._image_cache = {}
         self.base_dir = os.getcwd()
         self.strict_mode = True
+
+    def _on_anchor_clicked(self, url: QUrl):
+        """Handle clicked hyperlinks: scroll to internal anchors or open external URLs in browser.
+
+        Args:
+            url (QUrl): Clicked target URL.
+        """
+        fragment = url.fragment()
+        url_str = url.toString()
+
+        # 1. Handle Internal Anchor Links (#...)
+        if fragment or url_str.startswith("#"):
+            raw_target = fragment if fragment else url_str.lstrip("#")
+            anchor_target = unquote(raw_target)
+
+            # First attempt: scroll to exact anchor target
+            self.scrollToAnchor(anchor_target)
+
+            # Second attempt: Fallback for GitHub-style emoji slugs (e.g. #-overview -> overview)
+            if anchor_target.startswith("-"):
+                clean_target = anchor_target.lstrip("-")
+                if clean_target:
+                    self.scrollToAnchor(clean_target)
+        # 2. Handle External HTTP/HTTPS Links
+        elif url.scheme() in ["http", "https"]:
+            QDesktopServices.openUrl(url)
+        # 3. Handle Other Links (e.g. file://)
+        else:
+            QDesktopServices.openUrl(url)
 
     def set_base_dir(self, directory: str):
         """Set base directory for resolving local relative image paths."""
